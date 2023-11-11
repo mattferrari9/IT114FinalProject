@@ -29,7 +29,7 @@ public class Payload implements Serializable {
     }
 
     /**
-     * Who the payload is from
+     * Payload sender
      */
     private String clientName;
 
