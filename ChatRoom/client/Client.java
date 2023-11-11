@@ -146,6 +146,10 @@ public enum Client {
         fromServerThread.start();// start the thread
     }
 
+    /**
+     * 
+     * @param p
+     */
     private void processPayload(Payload p) {
         logger.log(Level.FINE, "Received Payload: " + p);
         if (events == null) {
