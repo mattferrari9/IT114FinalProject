@@ -3,7 +3,8 @@ package ChatRoom.common;
 import java.io.Serializable;
 
 public class Payload implements Serializable {
-    private static final long serialVersionUID = 1L;
+    // read https://www.baeldung.com/java-serial-version-uid
+    private static final long serialVersionUID = 3L;// change this if the class changes
 
     /**
      * Determines how to process the data on the receiver's side
@@ -11,35 +12,41 @@ public class Payload implements Serializable {
     private PayloadType payloadType;
 
     /**
-     * Retrieves the type of payload.
-     *
-     * @return The type of payload as a PayloadType enumeration.
+     * Getter method for payload type.
+     * 
+     * @return
      */
     public PayloadType getPayloadType() {
         return payloadType;
     }
 
     /**
-     * Sets the type of payload.
-     *
-     * @param payloadType The type of payload to be set.
+     * Setter method for payload type.
+     * Takes one parameter, payload type
+     * 
+     * @param payloadType
      */
     public void setPayloadType(PayloadType payloadType) {
         this.payloadType = payloadType;
     }
 
     /**
-     * Payload sender
+     * Who the payload is from
      */
     private String clientName;
 
+    /**
+     * Getter method for client name.
+     * 
+     * @return
+     */
     public String getClientName() {
         return clientName;
     }
 
     /**
-     * Setter method for clientName
-     * Takes one parameter, clientName
+     * Setter method for client name.
+     * Takes one parameter, client name
      * 
      * @param clientName
      */
@@ -47,18 +54,44 @@ public class Payload implements Serializable {
         this.clientName = clientName;
     }
 
-    /** 
-     * Generic string message
-    */
+    private long clientId;
+
+    /**
+     * Getter method for client ID.
+     * 
+     * @return
+     */
+    public long getClientId() {
+        return clientId;
+    }
+
+    /**
+     * Setter method for client ID.
+     * Takes one parameter, client ID.
+     * 
+     * @param clientId
+     */
+    public void setClientId(long clientId) {
+        this.clientId = clientId;
+    }
+
+    /**
+     * Generic text based message
+     */
     private String message;
 
+    /**
+     * Getter method for message.
+     * 
+     * @return
+     */
     public String getMessage() {
         return message;
     }
 
     /**
-     * Setter method for message
-     * Takes one parameter, message
+     * Setter method for message.
+     * Takes one parameter, message.
      * 
      * @param message
      */
@@ -71,13 +104,18 @@ public class Payload implements Serializable {
      */
     private int number;
 
+    /**
+     * Getter method for number
+     * 
+     * @return
+     */
     public int getNumber() {
         return number;
     }
 
     /**
-     * Setter method for number
-     * Takes one parameter, number
+     * Setter method for number.
+     * Takes one parameter, number.
      * 
      * @param number
      */
@@ -85,14 +123,10 @@ public class Payload implements Serializable {
         this.number = number;
     }
 
-    /**
-     * toString method for all parameters
-     * 
-     * @param null
-     */
     @Override
     public String toString() {
-        return String.format("Type[%s], Number[%s], Message[%s]", getPayloadType().toString(), getNumber(),
+        return String.format("ClientId[%s], ClientName[%s], Type[%s], Number[%s], Message[%s]", getClientId(),
+                getClientName(), getPayloadType().toString(), getNumber(),
                 getMessage());
     }
 }

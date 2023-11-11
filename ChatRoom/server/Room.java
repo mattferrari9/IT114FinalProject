@@ -1,14 +1,18 @@
 package ChatRoom.server;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import ChatRoom.common.Constants;
 
 public class Room implements AutoCloseable {
-	protected static Server server;
 	private String name;
-	private List<ServerThread> clients = new ArrayList<ServerThread>();
+	private List<ServerThread> clients = Collections.synchronizedList(new ArrayList<ServerThread>());
 	private boolean isRunning = false;
 	// Commands
 	private final static String COMMAND_TRIGGER = "/";
@@ -17,48 +21,31 @@ public class Room implements AutoCloseable {
 	private final static String DISCONNECT = "disconnect";
 	private final static String LOGOUT = "logout";
 	private final static String LOGOFF = "logoff";
+	private static Logger logger = Logger.getLogger(Room.class.getName());
 
 	/*
 	 * mjf8, 11/03/2023, 17:57 || updated mjf8, 11/03/23, 23:41 || updated mjf8,
-	 * 11/04/23, 12:21 || Deprecated 11/10/23, 23:34
+	 * 11/04/23, 12:21
 	 */
 	@Deprecated
 	private final static String ROLL = "roll";
 	private final static String FLIP = "flip";
 
-	/**
-	 * Default constructor for Room
-	 * 
-	 * @param name
-	 */
+	private final static String COLOR_REGEX = "#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})";
+
 	public Room(String name) {
 		this.name = name;
 		isRunning = true;
 	}
 
-	/**
-	 * Logs one (1) informational message related to the specific Room.
-	 * 
-	 * @param message The information to be logged.
-	 */
 	private void info(String message) {
-		System.out.println(String.format("Room[%s]: %s", name, message));
+		logger.log(Level.INFO, String.format("Room[%s]: %s", name, message));
 	}
 
-	/**
-	 * Getter method for variable name.
-	 * 
-	 * @return
-	 */
 	public String getName() {
 		return name;
 	}
 
-	/**
-	 * Adds a client to the current room.
-	 *
-	 * @param client The ServerThread representing the client to be added.
-	 */
 	protected synchronized void addClient(ServerThread client) {
 		if (!isRunning) {
 			return;
@@ -71,11 +58,15 @@ public class Room implements AutoCloseable {
 			new Thread() {
 				@Override
 				public void run() {
+					// slight delay to let potentially new client to finish
+					// binding input/output streams
+					// comment out the Thread.sleep to see what happens
 					try {
 						Thread.sleep(100);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
+					// sendMessage(client, "joined the room " + getName());
 					sendConnectionStatus(client, true);
 				}
 			}.start();
@@ -83,39 +74,33 @@ public class Room implements AutoCloseable {
 		}
 	}
 
-	/**
-	 * Removes a client from the room.
-	 *
-	 * @param client The ServerThread representing the client to be removed.
-	 */
 	protected synchronized void removeClient(ServerThread client) {
 		if (!isRunning) {
 			return;
 		}
 		clients.remove(client);
+		// we don't need to broadcast it to the server
+		// only to our own Room
 		if (clients.size() > 0) {
+			// sendMessage(client, "left the room");
 			sendConnectionStatus(client, false);
 		}
 		checkClients();
 	}
 
-	/***
-	 * Checks the number of clients.
-	 * If zero, begins the cleanup process to dispose of the room.
-	 * If the room is not lobby only.
-	 */
 	private void checkClients() {
+		// Cleanup if room is empty and not lobby
 		if (!name.equalsIgnoreCase("lobby") && clients.size() == 0) {
 			close();
 		}
 	}
 
-	/***
-	 * Helper function to process messages to trigger different functionality.
+	/**
+	 * Processes incoming messages to identify and execute commands.
 	 * 
-	 * @param message The original message being sent
-	 * @param client  The sender of the message (since they'll be the ones
-	 *                triggering the actions)
+	 * @param message message recieved from the client
+	 * @param client  ServerThread associated with the client
+	 * @return boolean indicating if the message contained/executed a command
 	 */
 	private boolean processCommands(String message, ServerThread client) {
 		boolean wasCommand = false;
@@ -155,6 +140,7 @@ public class Room implements AutoCloseable {
 							if (numberOfDice > 0 && sides > 0) {
 								int totalValue = rollDice(numberOfDice, sides); // check variable
 								sendMessage(client, " rolled " + numberOfDice + " dice " + " and got " + totalValue);
+
 							} else {
 								wasCommand = false;
 							}
@@ -183,12 +169,12 @@ public class Room implements AutoCloseable {
 	 * Using Open AI GPT3.5 AI as an outline.
 	 */
 	/**
-	 * Simulates the roll of a die with a specified number of sides.
+	 * Simulates rolling a single die with a specificed number of sides.
 	 *
-	 * @param sides The number of sides on the die.
-	 * @return The result of the die roll.
+	 * @param sides the number of sides on the die that will be "rolled".
+	 * @return an integer representing the result of the rolling die.
 	 * @throws IllegalArgumentException if the number of sides is less than or equal
-	 *                                  to 0.
+	 *                                  to 0;
 	 */
 	private int rollDie(int sides) {
 		if (sides <= 0) {
@@ -198,12 +184,12 @@ public class Room implements AutoCloseable {
 	}
 
 	/**
-	 * Simulates rolling multiple dice with a specified number of sides.
-	 *
-	 * @param numberOfDice The number of dice to roll.
-	 * @param sides        The number of sides on each die.
-	 * @return The total value obtained by rolling the specified number of dice with
-	 *         the given number of sides.
+	 * Simulates rolling multiple dice with a specified number of sides each.
+	 * 
+	 * @param numberOfDice the number of dice to roll.
+	 * @param sides        the number of sides on each die.
+	 * @return an integer representing the total value obtained by rolling the
+	 *         specified number of dice.
 	 * @throws IllegalArgumentException if the number of dice or sides is less than
 	 *                                  or equal to 0.
 	 */
@@ -222,9 +208,10 @@ public class Room implements AutoCloseable {
 	 * mjf8, 11/06/23, 17:34
 	 */
 	/**
-	 * Simulates flipping a coin and returns the result.
-	 *
-	 * @return The result of the coin flip, either "Heads" or "Tails".
+	 * Simulates flipping of a coin and returns the result (heads or tails)
+	 * 
+	 * @return a string representing the result of the coin flip, either heads or
+	 *         tails
 	 */
 	private String flipCoin() {
 		Random r = new Random();
@@ -234,41 +221,58 @@ public class Room implements AutoCloseable {
 	}
 
 	/**
-	 * Creates a new room with the specified name and adds a client to it if the
-	 * room doesn't exist.
-	 * Notifies the client if the room already exists.
+	 * Retrieves a list of rooms based on a specified query and sends the list to
+	 * the associated client
+	 * 
+	 * @param query  the search query used to filter rooms
+	 * @param client the ServerThread associated with the client recieving the room
+	 *               list
+	 */
+	protected static void getRooms(String query, ServerThread client) {
+		String[] rooms = Server.INSTANCE.getRooms(query).toArray(new String[0]);
+		client.sendRoomsList(rooms,
+				(rooms != null && rooms.length == 0) ? "No rooms found containing your query string" : null);
+	}
+
+	/**
+	 * Creates a new room with the specified name and adds the client to the room if
+	 * successful.
+	 * Informs the client if the room already exists and sends appropriate messages.
 	 *
 	 * @param roomName The name of the room to be created.
-	 * @param client   The ServerThread representing the client to add to the room.
-	 */
-	protected static void createRoom(String roomName, ServerThread client) {
-		if (server.createNewRoom(roomName)) {
-			server.joinRoom(roomName, client);
-		} else {
-			client.sendMessage("Server", String.format("Room %s already exists", roomName));
-		}
-	}
-
-	/**
-	 * Adds a client to the specified room if the room exists. Notifies the client
-	 * if the room doesn't exist.
-	 *
-	 * @param roomName The name of the room to join.
-	 * @param client   The ServerThread representing the client to be added to the
+	 * @param client   The ServerThread associated with the client creating the
 	 *                 room.
 	 */
-	protected static void joinRoom(String roomName, ServerThread client) {
-		if (!server.joinRoom(roomName, client)) {
-			client.sendMessage("Server", String.format("Room %s doesn't exist", roomName));
+	protected static void createRoom(String roomName, ServerThread client) {
+		if (Server.INSTANCE.createNewRoom(roomName)) {
+			Room.joinRoom(roomName, client);
+		} else {
+			client.sendMessage(Constants.DEFAULT_CLIENT_ID, String.format("Room %s already exists", roomName));
+			client.sendRoomsList(null, String.format("Room %s already exists", roomName));
 		}
 	}
 
 	/**
-	 * Disconnects a client from a room, setting their current room to null and
-	 * disconnecting the client.
+	 * Attempts to add a client to the specified room. Informs the client if the
+	 * room doesn't exist and sends appropriate messages.
 	 *
-	 * @param client The ServerThread representing the client to be disconnected.
-	 * @param room   The Room from which the client is to be disconnected.
+	 * @param roomName The name of the room where the client intends to join.
+	 * @param client   The ServerThread associated with the client attempting to
+	 *                 join the room.
+	 */
+	protected static void joinRoom(String roomName, ServerThread client) {
+		if (!Server.INSTANCE.joinRoom(roomName, client)) {
+			client.sendMessage(Constants.DEFAULT_CLIENT_ID, String.format("Room %s doesn't exist", roomName));
+			client.sendRoomsList(null, String.format("Room %s doesn't exist", roomName));
+		}
+	}
+
+	/**
+	 * Disconnects a client from a specified room, cleaning up its association and
+	 * disconnection from the server.
+	 *
+	 * @param client The ServerThread associated with the client to be disconnected.
+	 * @param room   The room from which the client is to be disconnected.
 	 */
 	protected static void disconnectClient(ServerThread client, Room room) {
 		client.setCurrentRoom(null);
@@ -281,31 +285,35 @@ public class Room implements AutoCloseable {
 	 * Using GPT 3.5 Open AI for a basic outline and regex
 	 */
 	/**
-	 * Formats a message based on certain patterns to apply HTML formatting.
+	 * Formats the input message by applying basic text formatting.
 	 *
-	 * @param message The message to be formatted.
-	 * @return The formatted message with HTML tags.
+	 * @param message The message to be formatted, containing specified markers for
+	 *                bold, italic, underline, and color.
+	 * @return A string with applied HTML-like formatting for bold, italic,
+	 *         underline, and color based on specified markers.
 	 */
 	protected static String formatMessage(String message) {
 		message = message.replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>");
 		message = message.replaceAll("\\*(.*?)\\*", "<i>$1</i>");
 		message = message.replaceAll("_(.*?)_", "<u>$1</u>");
-		message = message.replaceAll("#r(.*?)#", "<font color=\"red\">$1</font>");
-		message = message.replaceAll("#b(.*?)#", "<font color=\"blue\">$1</font>");
-		message = message.replaceAll("#g(.*?)#", "<font color=\"green\">$1</font>");
+		message = message.replaceAll(COLOR_REGEX, "<font color=\"$0\">$0</font>");
+
+		// message = message.replaceAll("#r(.*?)#", "<font color=\"red\">$1</font>");
+		// message = message.replaceAll("#b(.*?)#", "<font color=\"blue\">$1</font>");
+		// message = message.replaceAll("#g(.*?)#", "<font color=\"green\">$1</font>");
 
 		return message;
 	}
+
+	/*
+	 * mjf8, 11/06/23, 22:33
+	 */
 
 	/***
 	 * Takes a sender and a mjb ent info.
 	 * 
 	 * @param sender  The client sending the message
 	 * @param message The message to broadcast inside the room
-	 */
-
-	/*
-	 * mjf8, 11/06/23, 22:33
 	 */
 	protected synchronized void sendMessage(ServerThread sender, String message) {
 		if (!isRunning) {
@@ -318,7 +326,7 @@ public class Room implements AutoCloseable {
 
 		message = formatMessage(message);
 
-		String from = (sender == null ? "Room" : sender.getClientName());
+		long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
 		Iterator<ServerThread> iter = clients.iterator();
 		while (iter.hasNext()) {
 			ServerThread client = iter.next();
@@ -330,17 +338,20 @@ public class Room implements AutoCloseable {
 	}
 
 	/**
-	 * Sends a message to all clients in the room, processing commands and
-	 * formatting the message.
+	 * Sends connection status updates to all clients, notifying about a specific
+	 * client's connection state.
 	 *
-	 * @param sender  The ServerThread of the message sender.
-	 * @param message The message to be sent.
+	 * @param sender      The ServerThread representing the client for which the
+	 *                    connection status is being broadcast.
+	 * @param isConnected A boolean indicating the connection state (true for
+	 *                    connected, false for disconnected).
 	 */
 	protected synchronized void sendConnectionStatus(ServerThread sender, boolean isConnected) {
 		Iterator<ServerThread> iter = clients.iterator();
 		while (iter.hasNext()) {
 			ServerThread client = iter.next();
-			boolean messageSent = client.sendConnectionStatus(sender.getClientName(), isConnected);
+			boolean messageSent = client.sendConnectionStatus(sender.getClientId(), sender.getClientName(),
+					isConnected); // new code
 			if (!messageSent) {
 				handleDisconnect(iter, client);
 			}
@@ -348,28 +359,25 @@ public class Room implements AutoCloseable {
 	}
 
 	/**
-	 * Handles the disconnection of a client from the room, removing the client and
-	 * informing other clients about the disconnection.
+	 * Handles the disconnection of a client, performing necessary clean-up and
+	 * notification tasks.
 	 *
-	 * @param iter   Iterator of clients in the room.
+	 * @param iter   An Iterator used to potentially remove the client from the
+	 *               clients list.
 	 * @param client The ServerThread representing the client to be disconnected.
 	 */
-	private void handleDisconnect(Iterator<ServerThread> iter, ServerThread client) {
-		iter.remove();
-		info("Removed client " + client.getId());
+	private synchronized void handleDisconnect(Iterator<ServerThread> iter, ServerThread client) {
+		if (iter != null) {
+			iter.remove();
+		}
+		info("Removed client " + client.getClientName());
 		checkClients();
-		sendMessage(null, client.getId() + " disconnected");
+		sendConnectionStatus(client, false);
+		// sendMessage(null, client.getClientName() + " disconnected");
 	}
 
-	/**
-	 * Closes the room, removing it from the server and marking it as inactive.
-	 * Removes references to the server and clients, terminating the room.
-	 */
 	public void close() {
-		server.removeRoom(this);
-		// NOTE: This will break all rooms
-		// be sure to remove/comment out server = null;
-		server = null;
+		Server.INSTANCE.removeRoom(this);
 		isRunning = false;
 		clients = null;
 	}

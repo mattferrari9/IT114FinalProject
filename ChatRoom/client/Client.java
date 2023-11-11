@@ -1,4 +1,4 @@
-package CRProject.client;
+package ChatRoom.client;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
