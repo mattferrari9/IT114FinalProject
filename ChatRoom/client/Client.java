@@ -140,9 +140,9 @@ public class Client {
 
     /**
      * Controller for handling various text commands.
-     * <p>
+     * <p> html tag
      * Add more here as needed
-     * </p>
+     * </p> html tag
      * 
      * @param text
      * @return true if a text was a command or triggered a command
